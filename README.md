@@ -17,7 +17,6 @@ An interactive Streamlit dashboard for analysing APL Logistics sales, profit, cu
 ├── APL_Logistics.csv   # Source dataset
 ├── app.py              # Streamlit dashboard
 ├── APL_Logistics_Research_Paper.docx  # EDA, insights, and recommendations
-├── build_research_paper.py             # Rebuilds the research paper from the dataset
 ├── requirements.txt    # Python dependencies
 └── README.md
 ```

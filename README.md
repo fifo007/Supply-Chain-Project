@@ -1,14 +1,14 @@
 # APL Logistics Profitability Intelligence
 
-An interactive Streamlit dashboard for analysing APL Logistics sales, profit, customer, product, discount, and delivery-performance data.
+An interactive Streamlit dashboard for analysing APL Logistics sales, profit, customers, products, discounts, markets, and category performance.
 
 ## Features
 
-- Filter results by customer segment, market, category, and discount rate.
-- Review key performance indicators for revenue, profit, margin, discounts, and late-delivery risk.
-- Compare profitability across markets and shipping modes.
-- Identify high-value customers, customer segments needing attention, profitable categories, and loss-making products.
-- Explore the relationship between discount rates and profit margins, including high-discount loss-making orders.
+- Filter results by customer segment, market, category, product, and discount rate.
+- Review key performance indicators for revenue, profit, profit margin, and average discount.
+- Compare top and bottom customers by profit and assess customer-segment contribution.
+- Analyse product-level margins, category profitability, and a category-by-market profitability heatmap.
+- Explore the relationship between discount rates and profit margins, identify high-discount loss-making line items, and test what-if discount scenarios.
 
 ## Project structure
 
@@ -16,6 +16,8 @@ An interactive Streamlit dashboard for analysing APL Logistics sales, profit, cu
 .
 ├── APL_Logistics.csv   # Source dataset
 ├── app.py              # Streamlit dashboard
+├── APL_Logistics_Research_Paper.docx  # EDA, insights, and recommendations
+├── build_research_paper.py             # Rebuilds the research paper from the dataset
 ├── requirements.txt    # Python dependencies
 └── README.md
 ```
@@ -60,6 +62,10 @@ The dashboard reads `APL_Logistics.csv` from the same folder as `app.py`. It loa
 - Discount percentage and discount band
 
 The source data has no order-date field, so the dashboard deliberately does not include a time-series revenue chart.
+
+### Discount scenario assumptions
+
+The what-if calculator estimates the impact of a uniform proposed discount rate for the currently filtered order lines. It estimates undiscounted sales from each line's current discount and holds the observed cost per line constant. It is a planning aid, not a forecast of customer demand or future costs.
 
 ## Technologies
 

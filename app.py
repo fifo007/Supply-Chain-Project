@@ -87,10 +87,12 @@ st.sidebar.header("Dashboard filters")
 segments = sorted(df["Customer Segment"].dropna().unique())
 markets = sorted(df["Market"].dropna().unique())
 categories = sorted(df["Category Name"].dropna().unique())
+products = sorted(df["Product Name"].dropna().unique())
 
 selected_segments = st.sidebar.multiselect("Customer segment", segments, default=segments)
 selected_markets = st.sidebar.multiselect("Market / region", markets, default=markets)
 selected_categories = st.sidebar.multiselect("Category", categories, default=categories)
+selected_products = st.sidebar.multiselect("Product", products, default=products)
 
 maximum_discount = float(df["Discount %"].max())
 discount_range = st.sidebar.slider(
@@ -105,6 +107,7 @@ filtered = df[
     df["Customer Segment"].isin(selected_segments)
     & df["Market"].isin(selected_markets)
     & df["Category Name"].isin(selected_categories)
+    & df["Product Name"].isin(selected_products)
     & df["Discount %"].between(*discount_range)
 ].copy()
 
@@ -186,7 +189,7 @@ with tab_customers:
     customer_summary["Profit Margin %"] = (
         customer_summary["Profit"].div(customer_summary["Revenue"].replace(0, pd.NA)).mul(100)
     )
-    left, right = st.columns(2)
+    left, middle, right = st.columns(3)
     with left:
         top_customers = customer_summary.nlargest(10, "Profit").sort_values("Profit")
         fig = px.bar(
@@ -197,6 +200,18 @@ with tab_customers:
             color="Customer Segment",
             title="Top 10 customers by profit",
         )
+        st.plotly_chart(fig, use_container_width=True)
+    with middle:
+        bottom_customers = customer_summary.nsmallest(10, "Profit").sort_values("Profit", ascending=False)
+        fig = px.bar(
+            bottom_customers,
+            x="Profit",
+            y="Customer Name",
+            orientation="h",
+            color="Customer Segment",
+            title="Bottom 10 customers by profit",
+        )
+        fig.update_layout(yaxis_title="", xaxis_title="Profit")
         st.plotly_chart(fig, use_container_width=True)
     with right:
         segment_summary = (
@@ -257,16 +272,44 @@ with tab_products:
             filtered.groupby(["Product Name", "Category Name"], as_index=False)
             .agg(Revenue=("Sales", "sum"), Profit=(PROFIT_COLUMN, "sum"), Discount=("Discount %", "mean"))
         )
-        loss_products = product_summary.nsmallest(12, "Profit")
+        product_summary["Profit Margin %"] = (
+            product_summary["Profit"].div(product_summary["Revenue"].replace(0, pd.NA)).mul(100)
+        )
+        low_margin_products = (
+            product_summary[product_summary["Revenue"] >= 1_000]
+            .nsmallest(12, "Profit Margin %")
+        )
         fig = px.bar(
-            loss_products.sort_values("Profit"),
-            x="Profit",
+            low_margin_products.sort_values("Profit Margin %"),
+            x="Profit Margin %",
             y="Product Name",
             color="Category Name",
             orientation="h",
-            title="Products with the lowest profit",
+            title="Product-level margin analysis (lowest margins)",
         )
         st.plotly_chart(fig, use_container_width=True)
+
+    st.subheader("Category profitability heatmap")
+    heatmap_data = (
+        filtered.groupby(["Category Name", "Market"], as_index=False)
+        .agg(Profit=(PROFIT_COLUMN, "sum"))
+    )
+    top_categories = (
+        heatmap_data.groupby("Category Name", as_index=False)["Profit"]
+        .sum()
+        .nlargest(15, "Profit")["Category Name"]
+    )
+    fig = px.density_heatmap(
+        heatmap_data[heatmap_data["Category Name"].isin(top_categories)],
+        x="Market",
+        y="Category Name",
+        z="Profit",
+        histfunc="sum",
+        color_continuous_scale="RdYlGn",
+        labels={"Market": "Market", "Category Name": "Category", "color": "Profit"},
+        title="Profit by category and market (top 15 categories)",
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("Category performance table")
     st.dataframe(
@@ -331,6 +374,26 @@ with tab_discounts:
             "Discount %": st.column_config.NumberColumn(format="%.1f%%"),
         },
     )
+
+    st.subheader("What-if discount scenario")
+    scenario_discount = st.slider(
+        "Proposed uniform discount rate (%)",
+        min_value=0.0,
+        max_value=50.0,
+        value=float(min(50, round(average_discount))),
+        step=1.0,
+        help="Estimates results if the displayed order lines used one discount rate. Product cost is assumed unchanged.",
+    )
+    base_sales = filtered["Sales"].div(1 - filtered["Order Item Discount Rate"].clip(upper=0.99))
+    estimated_sales = (base_sales * (1 - scenario_discount / 100)).sum()
+    estimated_cost = (filtered["Sales"] - filtered[PROFIT_COLUMN]).sum()
+    estimated_profit = estimated_sales - estimated_cost
+    estimated_margin = estimated_profit / estimated_sales * 100 if estimated_sales else 0
+    scenario1, scenario2, scenario3 = st.columns(3)
+    scenario1.metric("Estimated sales", currency(estimated_sales), delta=currency(estimated_sales - revenue))
+    scenario2.metric("Estimated profit", currency(estimated_profit), delta=currency(estimated_profit - profit))
+    scenario3.metric("Estimated margin", f"{estimated_margin:.1f}%", delta=f"{estimated_margin - profit_margin:.1f} pp")
+    st.caption("Scenario calculation: undiscounted sales are estimated from the current discount rate; cost per order line is held constant. This is a planning estimate, not a forecast.")
 
 st.divider()
 st.caption("Built for APL Logistics • Data source: APL_Logistics.csv")
